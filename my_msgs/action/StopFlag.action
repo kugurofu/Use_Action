@@ -1,11 +1,6 @@
-# Goal
-bool data
-
+int64 a
+int64 b
 ---
-# Result
-bool success
-
+int64 sum
 ---
-# Feedback
-float32 progress
-
+float32 rate

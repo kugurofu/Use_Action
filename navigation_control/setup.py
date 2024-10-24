@@ -26,6 +26,8 @@ setup(
     entry_points={
         'console_scripts': [
         'stop_flag = navigation_control.stop_flag:main',
+        "client = navigation_control.client:main",
+        "server = navigation_control.server:main",
         ],
     },
 )
