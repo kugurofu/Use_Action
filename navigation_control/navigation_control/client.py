@@ -6,6 +6,7 @@ import subprocess
 import yaml
 from my_msgs.action import StopFlag  # Actionメッセージのインポート
 import tkinter as tk
+import threading
 
 class WaypointMonitor(Node):
     def __init__(self):
@@ -95,9 +96,9 @@ class WaypointMonitor(Node):
 
     def resume_action(self):
         # ボタンを押したときにstopをFalseにしてアクションを再送信
-        self.stop = False
+        self.stop = True
         self.get_logger().info("Stop flag reset to False")
-        self.send_action()
+        self.send_action_request()
 
     def run(self):
         # Tkinterのメインループを開始
@@ -106,9 +107,15 @@ class WaypointMonitor(Node):
 def main(args=None):
     rclpy.init(args=args)
     waypoint_monitor = WaypointMonitor()
-    rclpy.spin(waypoint_monitor)
+    # rclpyスピンを別スレッドで実行
+    rclpy_thread = threading.Thread(target=rclpy.spin, args=(waypoint_monitor,))
+    rclpy_thread.start()
+    # Tkinter GUIのループを実行
+    waypoint_monitor.run()
+    # スレッド終了後にノードを破棄
     waypoint_monitor.destroy_node()
     rclpy.shutdown()
+    rclpy_thread.join()
 
 if __name__ == '__main__':
     main()
