@@ -33,6 +33,7 @@ class WaypointMonitor(Node):
         with open(filepath, 'r') as file:
             data = yaml.safe_load(file)
         waypoints = [(point['point']['x'], point['point']['y']) for point in data['waypoints']]
+        self.get_logger().info(f' {waypoints} !')
         return waypoints
 
     def odom_callback(self, msg):

@@ -63,7 +63,7 @@ class WaypointMonitor(Node):
 
     def resume_action(self):
         # ボタンを押したときにstopをFalseにしてアクションを再送信
-        self.stop = False
+        self.stop = True
         self.get_logger().info("Stop flag reset to False")
         self.send_action_request()
 

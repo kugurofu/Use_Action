@@ -7,23 +7,40 @@ import yaml
 from my_msgs.action import StopFlag  # Actionメッセージのインポート
 import tkinter as tk
 import threading
+import std_msgs.msg as std_msgs
+import nav_msgs.msg as nav_msgs
+import sensor_msgs.msg as sensor_msgs
+import numpy as np
+import math
+from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSHistoryPolicy, QoSReliabilityPolicy
+import yaml
+import os
+import time
+import geometry_msgs.msg as geometry_msgs
+import glob
+import cv2
+from std_msgs.msg import Int8MultiArray
+from nav_msgs.msg import OccupancyGrid
+from cv_bridge import CvBridge
+import transforms3d
+from geometry_msgs.msg import Quaternion
 
 class WaypointMonitor(Node):
     def __init__(self):
         super().__init__('waypoint_monitor')
         self.subscription = self.create_subscription(
             Odometry,
-            '/odom',
+            '/odom_wheel',
             self.odom_callback,
             10)
         # Waypoint YAMLファイルを読み込む
-        folder_path = os.path.expanduser('~/ros2_ws/src/map/nakaniwa')
+        folder_path = os.path.expanduser('~/ros2_ws/src/nakaniwa')
         # フォルダ内のpgmファイルを検索
         pgm_files = glob.glob(os.path.join(folder_path, '*.pgm'))
         pgm_file_count = len(pgm_files)
         #Global reflect map load: PGM、JPEG、YAMLファイルを行列形式で読み込み
         map_base_name = "nakaniwa_test" # 対象画像の名前
-        folder_path = os.path.expanduser('~/ros2_ws/src/map/nakaniwa')
+        folder_path = os.path.expanduser('~/ros2_ws/src/nakaniwa')
         map_file_path = os.path.join(folder_path, map_base_name) # パスの連結
         
         global_reflect_map_pgms = []
@@ -79,6 +96,9 @@ class WaypointMonitor(Node):
         self.waypoints = np.array([wp_x,wp_y,wp_z])
         print(f"self.waypoints ={self.waypoints}")
         print(f"self.waypoints ={self.waypoints.shape}")
+        self.waypoint = list(map(tuple, self.waypoints[:2].T))
+        print(f"self.waypoint ={self.waypoint}")
+        print(len(self.waypoint))
         #############################
         
         # self.waypoints = self.load_waypoints('/home/ubuntu/ros2_ws/src/kbkn_maps/waypoints/gazebo/orange_hosei/slam_toolbox/waypoints.yaml')
@@ -93,17 +113,20 @@ class WaypointMonitor(Node):
         self.root.title("Waypoint Monitor Control")
         self.button = tk.Button(self.root, text="Resume", command=self.resume_action)
         self.button.pack()
-
+    
+    '''
     def load_waypoints(self, filepath):
         with open(filepath, 'r') as file:
             data = yaml.safe_load(file)
         waypoints = [(point['point']['x'], point['point']['y']) for point in data['waypoints']]
         return waypoints
-
+    '''
+    
     def odom_callback(self, msg):
         current_position = (msg.pose.pose.position.x, msg.pose.pose.position.y)
-        if self.current_waypoint_index < len(self.waypoints):
-            target_position = self.waypoints[self.current_waypoint_index]
+        # print(f"current_position ={self.current_position}")
+        if self.current_waypoint_index < len(self.waypoint):
+            target_position = self.waypoint[self.current_waypoint_index]
             if self.is_at_waypoint(current_position, target_position):
                 self.get_logger().info(f'Waypoint {self.current_waypoint_index} reached!')
 
@@ -116,8 +139,8 @@ class WaypointMonitor(Node):
                 self.current_waypoint_index += 1
 
     def is_at_waypoint(self, current_position, target_position):
-        return (abs(current_position[0] - target_position[0]) < 0.3 and
-                abs(current_position[1] - target_position[1]) < 0.3)
+        return (abs(current_position[0] - target_position[0]) < 5.0 and
+                abs(current_position[1] - target_position[1]) < 10.0)
 
     # サーバーにアクションを送信する関数
     def send_action_request(self):
