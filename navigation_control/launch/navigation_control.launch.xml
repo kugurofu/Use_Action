@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- waypoint_monitor -->
+  <node pkg="navigation_control" exec="waypoint_monitor"/>
+  <!-- button -->
+  <node pkg="navigation_control" exec="button"/>
+</launch>

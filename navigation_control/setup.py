@@ -15,6 +15,8 @@ setup(
         ('share/' + package_name, ['package.xml']),
         # アクションファイルのインストール
         (os.path.join('share', package_name), glob('action/*.action')),
+        # launch
+        ('share/' + package_name + '/launch', ['launch/navigation_control.launch.xml']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -31,6 +33,7 @@ setup(
         "client2 = navigation_control.client2:main",
         "client3 = navigation_control.client3:main",
         "server = navigation_control.server:main",
+        "waypoint_monitor = navigation_control.waypoint_monitor:main",
         ],
     },
 )
