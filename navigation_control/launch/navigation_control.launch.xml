@@ -2,6 +2,10 @@
 <launch>
   <!-- waypoint_monitor -->
   <node pkg="navigation_control" exec="waypoint_monitor"/>
+  <!-- trafficlight_waypoint_monitor -->
+  <node pkg="navigation_control" exec="trafficlight_waypoint_monitor"/>
+  <!-- judge_trafficlight -->
+  <node pkg="navigation_control" exec="judge_trafficlight"/>
   <!-- button -->
   <node pkg="navigation_control" exec="button"/>
 </launch>

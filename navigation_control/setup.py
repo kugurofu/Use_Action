@@ -34,6 +34,8 @@ setup(
         "client3 = navigation_control.client3:main",
         "server = navigation_control.server:main",
         "waypoint_monitor = navigation_control.waypoint_monitor:main",
+        "trafficlight_waypoint_monitor = navigation_control.trafficlight_waypoint_monitor:main",
+        "judge_trafficlight = navigation_control.judge_trafficlight:main",
         ],
     },
 )
