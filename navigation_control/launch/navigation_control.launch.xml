@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
   <!-- waypoint_monitor -->
-  <node pkg="navigation_control" exec="waypoint_monitor"/>
+  <!--<node pkg="navigation_control" exec="waypoint_monitor"/>-->
   <!-- trafficlight_waypoint_monitor -->
   <node pkg="navigation_control" exec="trafficlight_waypoint_monitor"/>
   <!-- judge_trafficlight -->
