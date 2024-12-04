@@ -66,11 +66,11 @@ class TrafficLightWaypointMonitor(Node):
         goal_msg = StopFlag.Goal()
         
         if self.traffic_action:
-            goal_msg.a = 1  # start judge
+            goal_msg.b = 1  # start judge
         else:
-            goal_msg.a = 0
+            goal_msg.b = 0
             
-        goal_msg.b = 2  # 任意の値を設定
+        goal_msg.a = 2  # 任意の値を設定
 
         self.action_client.wait_for_server()
         self.future = self.action_client.send_goal_async(goal_msg, feedback_callback=self.feedback_callback)

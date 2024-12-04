@@ -90,10 +90,13 @@ class JudgeTrafficLight(Node):
 
         # アクションサーバーが利用可能になるまで待機
         self.action_client.wait_for_server()
+        self.action_client2.wait_for_server()
 
         # アクションを非同期で送信
         self.future = self.action_client.send_goal_async(goal_msg, feedback_callback=self.feedback_callback)
+        self.future2 = self.action_client.send_goal_async(goal_msg, feedback_callback=self.feedback_callback)
         self.future.add_done_callback(self.response_callback)
+        self.future2.add_done_callback(self.response_callback2)
 
     # フィードバックを受け取るコールバック関数
     def feedback_callback(self, feedback):
@@ -110,10 +113,25 @@ class JudgeTrafficLight(Node):
 
         self.result_future = goal_handle.get_result_async()
         self.result_future.add_done_callback(self.result_callback)
+        
+    def response_callback2(self, future2):
+        goal_handle = future2.result()
+        if not goal_handle.accepted:
+            self.get_logger().info("Goal rejected")
+            return
+
+        self.get_logger().info("Goal accepted")
+
+        self.result_future2 = goal_handle.get_result_async()
+        self.result_future2.add_done_callback(self.result_callback2)
 
     # 結果のコールバック
     def result_callback(self, future):
         result = future.result().result
+        self.get_logger().info(f"Result: {result.sum}")
+        
+    def result_callback2(self, future2):
+        result = future2.result().result
         self.get_logger().info(f"Result: {result.sum}")
     
 # メイン関数
