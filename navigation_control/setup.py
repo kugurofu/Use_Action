@@ -39,6 +39,7 @@ setup(
         'camera_publisher = navigation_control.camera_publisher:main',
         'get_gps_average = navigation_control.get_gps_average:main',
         'gps_yaml = navigation_control.gps_yaml:main',
+        'gps_waypoint = navigation_control.gps_waypoint:main',
         ],
     },
 )
