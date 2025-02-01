@@ -37,6 +37,8 @@ setup(
         "trafficlight_waypoint_monitor = navigation_control.trafficlight_waypoint_monitor:main",
         "judge_trafficlight = navigation_control.judge_trafficlight:main",
         'camera_publisher = navigation_control.camera_publisher:main',
+        'get_gps_average = navigation_control.get_gps_average:main',
+        'gps_yaml = navigation_control.gps_yaml:main',
         ],
     },
 )
