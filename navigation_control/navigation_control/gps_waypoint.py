@@ -2,7 +2,7 @@
 import rclpy
 # rclpy (ROS 2のpythonクライアント)の機能のうちNodeを簡単に使えるようにします。こう書いていない場合、Nodeではなくrclpy.node.Nodeと書く必要があります。
 from rclpy.node import Node
-from sensor_msgs.msg import NavSatFix
+from sensor_msgs.msg import Imu, NavSatFix
 import numpy as np
 import time
 import threading
@@ -16,22 +16,29 @@ import std_msgs.msg as std_msgs
 import sensor_msgs.msg as sensor_msgs
 import yaml
 import os
+import queue
 
 class GPSAverageNode(Node):
     def __init__(self):
         super().__init__('gps_average_node')
         self.subscription = self.create_subscription(NavSatFix, '/fix', self.gps_callback, 10)
+        self.movingase_sub = self.create_subscription(Imu, "movingbase/quat", self.movingbase_callback, 1)
 
         self.data = []
         self.start_time = None
         self.is_collecting = False
-        self.waypoints = None  
-
+        self.waypoints = queue.Queue()  
+        self.theta = None
+        self.count = 0
+        self.declare_parameter('Position_magnification', 1.675)
+        self.Position_magnification = self.get_parameter('Position_magnification').get_parameter_value().double_value
+        
+        # define waypoints
         self.ref_points = [
-            (35.43, 139.32),
-            (35.44, 139.33),
-            (35.42, 139.31),
-            (35.45, 139.34)
+            (35.42592508, 139.3138167), # waypoint 1
+            (35.425966134, 139.31379639000002), # waypoint 2
+            (35.425661999999996, 139.31391208), # waypoint 3
+            (35.45, 139.34) # waypoint 4
         ]
 
         # Tkinter UI
@@ -39,13 +46,85 @@ class GPSAverageNode(Node):
         self.root.title("GPS Data Collection")
         self.button = tk.Button(self.root, text="Start Collection", command=self.start_collection)
         self.button.pack()
+    
+    def movingbase_callback(self, msg):
+        if self.count == 0:
+            self.theta = msg.orientation_covariance[0]
+            self.count = 1
+    
+    # copy lonlat_to_odom function 
+    def conversion(self, avg_lat, avg_lon, theta):
+        #ido = self.ref_points[0]
+        #keido = self.ref_points[1]
+        ido0 = avg_lat
+        keido0 = avg_lon
 
-    def rotate_coordinates(self, x_diff, y_diff, vehicle_angle):
-        """ 指定した角度 (度単位) で (x, y) を回転させる """
-        angle_rad = math.radians(vehicle_angle)  # 角度をラジアンに変換
-        x_rot = x_diff * math.cos(angle_rad) - y_diff * math.sin(angle_rad)
-        y_rot = x_diff * math.sin(angle_rad) + y_diff * math.cos(angle_rad)
-        return x_rot, y_rot
+        self.get_logger().info(f"theta: {theta}")
+
+        a = 6378137
+        f = 35/10439
+        e1 = 734/8971
+        e2 = 127/1547
+        n = 35/20843
+        a0 = 1
+        a2 = 102/40495
+        a4 = 1/378280
+        a6 = 1/289634371
+        a8 = 1/204422462123
+        pi180 = 71/4068
+        
+        points=[] # list
+        
+        for i, (ido, keido) in enumerate(self.ref_points):     
+            # %math.pi/180
+            d_ido = ido - ido0
+            self.get_logger().info(f"d_ido: {d_ido}")
+            d_keido = keido - keido0
+            self.get_logger().info(f"d_keido: {d_keido}")
+            rd_ido = d_ido * pi180
+            rd_keido = d_keido * pi180
+            r_ido = ido * pi180
+            r_keido = keido * pi180
+            r_ido0 = ido0 * pi180
+            W = math.sqrt(1-(e1**2)*(math.sin(r_ido)**2))
+            N = a / W
+            t = math.tan(r_ido)
+            ai = e2*math.cos(r_ido)
+
+            # %===Y===%
+            S = a*(a0*r_ido - a2*math.sin(2*r_ido)+a4*math.sin(4*r_ido) -
+                   a6*math.sin(6*r_ido)+a8*math.sin(8*r_ido))/(1+n)
+            S0 = a*(a0*r_ido0-a2*math.sin(2*r_ido0)+a4*math.sin(4*r_ido0) -
+                    a6*math.sin(6*r_ido0)+a8*math.sin(8*r_ido0))/(1+n)
+            m0 = S/S0
+            B = S-S0
+            y1 = (rd_keido**2)*N*math.sin(r_ido)*math.cos(r_ido)/2
+            y2 = (rd_keido**4)*N*math.sin(r_ido) * \
+                (math.cos(r_ido)**3)*(5-(t**2)+9*(ai**2)+4*(ai**4))/24
+            y3 = (rd_keido**6)*N*math.sin(r_ido)*(math.cos(r_ido)**5) * \
+                (61-58*(t**2)+(t**4)+270*(ai**2)-330*(ai**2)*(t**2))/720
+            gps_y = self.Position_magnification * m0 * (B + y1 + y2 + y3)
+
+            # %===X===%
+            x1 = rd_keido*N*math.cos(r_ido)
+            x2 = (rd_keido**3)*N*(math.cos(r_ido)**3)*(1-(t**2)+(ai**2))/6
+            x3 = (rd_keido**5)*N*(math.cos(r_ido)**5) * \
+                (5-18*(t**2)+(t**4)+14*(ai**2)-58*(ai**2)*(t**2))/120
+            gps_x = self.Position_magnification * m0 * (x1 + x2 + x3)
+
+            # point = (gps_x, gps_y)Not match
+
+            degree_to_radian = math.pi / 180
+            r_theta = theta * degree_to_radian
+            h_x = math.cos(r_theta) * gps_x - math.sin(r_theta) * gps_y
+            h_y = math.sin(r_theta) * gps_x + math.cos(r_theta) * gps_y
+            #point = np.array([h_y, -h_x, 0.0])
+            point = np.array([-h_y, h_x, 0.0])
+            # point = (h_y, -h_x)
+            self.get_logger().info(f"point: {point}")         
+            points.append(point)
+
+        return points
 
     def start_collection(self):
         if not self.is_collecting:
@@ -69,37 +148,30 @@ class GPSAverageNode(Node):
             avg_lon = sum(lon for lat, lon in self.data) / len(self.data)
 
             self.get_logger().info(f'10秒間の平均値: 緯度={avg_lat}, 経度={avg_lon}')
-            self.get_logger().info('基準座標との差を x-y 座標に変換:')
-
-            # 手動で設定する車両の向き (例: 30°)
-            vehicle_angle = 30  # ここを手動で変更
-
-            waypoints_list = []
-            for i, (ref_lat, ref_lon) in enumerate(self.ref_points):
-                y_diff = geodesic((ref_lat, avg_lon), (avg_lat, avg_lon)).meters
-                if ref_lat < avg_lat:
-                    y_diff *= -1  
-
-                x_diff = geodesic((avg_lat, ref_lon), (avg_lat, avg_lon)).meters
-                if ref_lon < avg_lon:
-                    x_diff *= -1  
-
-                # 車両の向きを考慮して回転
-                x_rot, y_rot = self.rotate_coordinates(x_diff, y_diff, vehicle_angle)
-
-                waypoints_list.append([x_rot, y_rot, 0.0])  
-
-            self.waypoints = np.array(waypoints_list).T  # 形状を [3, N] に変換
-            self.get_logger().info(f'waypoints 配列を保存しました: {self.waypoints}')
+            
+            GPSxy = self.conversion(avg_lat, avg_lon, self.theta)
+            
+            #waypoints_list = []
+            #waypoints_list.append(GPSxy)           
+            #self.waypoints = np.array(waypoints_list).T  # 形状を [3, N] に変換
+            self.waypoints.put(GPSxy)
 
             self.is_collecting = False  
 
             # 計算が終わったら WaypointManager を起動
             self.launch_waypoint_manager()
 
+            
     def launch_waypoint_manager(self):
         self.get_logger().info("WaypointManager を起動します。")
-        waypoint_manager = WaypointManager(self.waypoints)
+        # キューからリストに変換し、WaypointManager に渡す
+        waypoints_list = []
+        while not self.waypoints.empty():
+            waypoints_list.append(self.waypoints.get())
+
+        waypoints_array = np.array(waypoints_list).T  # 形状を [3, N] に変換
+
+        waypoint_manager = WaypointManager(waypoints_array)
         rclpy.spin(waypoint_manager)
         waypoint_manager.destroy_node()
 
@@ -109,7 +181,7 @@ class GPSAverageNode(Node):
 # C++と同じく、Node型を継承します。
 class WaypointManager(Node):
     # コンストラクタです、PcdRotationクラスのインスタンスを作成する際に呼び出されます。
-    def __init__(self, waypoints):
+    def __init__(self, waypoints_array):
         # 継承元のクラスを初期化します。
         super().__init__('waypoint_manager_node')
         
@@ -149,7 +221,7 @@ class WaypointManager(Node):
         self.theta_y = 0.0 #[deg]
         self.theta_z = 0.0 #[deg]
         
-        self.waypoints = waypoints
+        self.waypoints = waypoints_array
         print(f"self.waypoints ={self.waypoints}")
         
     def waypoint_manager(self):
@@ -205,9 +277,9 @@ class WaypointManager(Node):
         pose_array.header.frame_id = set_frame_id
         pose_array.header.stamp = self.time_stamp
         pose = geometry_msgs.Pose()
-        pose.position.x = waypoint[0]
-        pose.position.y = waypoint[1]
-        pose.position.z = waypoint[2]
+        pose.position.x = float(waypoint[0])
+        pose.position.y = float(waypoint[1])
+        pose.position.z = float(waypoint[2])
         
         pose.orientation.x = 0.0
         pose.orientation.y = 0.0
