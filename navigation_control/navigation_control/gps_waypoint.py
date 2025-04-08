@@ -46,6 +46,18 @@ class GPSAverageNode(Node):
         self.root.title("GPS Data Collection")
         self.button = tk.Button(self.root, text="Start Collection", command=self.start_collection)
         self.button.pack()
+        self.root.bind("<Key>", self.key_input_handler)
+        self.reversed_flag = False  # bが入力されたかどうかを記録
+        
+    def key_input_handler(self, event):
+        key = event.char.lower()
+        if key == 'b':
+            self.get_logger().info("キー入力: 'b' を受け取りました。ref_pointsを反転します。")
+            self.ref_points.reverse()
+            self.reversed_flag = True
+        elif key == 'a':
+            self.get_logger().info("キー入力: 'a' を受け取りました。通常順で実行します。")
+            self.reversed_flag = False
     
     def movingbase_callback(self, msg):
         if self.count == 0:
@@ -154,7 +166,27 @@ class GPSAverageNode(Node):
             #waypoints_list = []
             #waypoints_list.append(GPSxy)           
             #self.waypoints = np.array(waypoints_list).T  # 形状を [3, N] に変換
-            self.waypoints.put(GPSxy)
+            
+            # ここで前後に追加したいXY座標を定義
+            first_point = np.array([[0.0, 0.0, 0.0],
+                                    [5.0, 5.0, 0.0]])  # 開始点など
+            last_point = np.array([[20.0, 5.0, 0.0]])   # 終了点など
+            
+            # prepend/append の設定（反転フラグに応じて）
+            if self.reversed_flag:
+                first_point[:, 1] *= -1
+                last_point[:, 1] *= -1
+            #else:
+            #    first_point = np.array([[0.0, 0.0, 0.0]])
+            #    last_point = np.array([[5.0, 5.0, 0.0]])           
+            
+            # export numpy
+            gps_np = np.array(GPSxy)
+            
+            # connect waypoints
+            full_waypoints = np.concatenate([first_point, gps_np, last_point], axis=0)
+            
+            self.waypoints.put(full_waypoints.T)
 
             self.is_collecting = False  
 
@@ -165,11 +197,12 @@ class GPSAverageNode(Node):
     def launch_waypoint_manager(self):
         self.get_logger().info("WaypointManager を起動します。")
         # キューからリストに変換し、WaypointManager に渡す
-        waypoints_list = []
+        #waypoints_list = []
         while not self.waypoints.empty():
-            waypoints_list.append(self.waypoints.get())
+            #waypoints_list.append(self.waypoints.get())
+            waypoints_array = self.waypoints.get()
 
-        waypoints_array = np.array(waypoints_list).T  # 形状を [3, N] に変換
+        #waypoints_array = np.array(waypoints_list).T  # 形状を [3, N] に変換
 
         waypoint_manager = WaypointManager(waypoints_array)
         rclpy.spin(waypoint_manager)
