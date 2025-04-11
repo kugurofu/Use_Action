@@ -35,10 +35,14 @@ class GPSAverageNode(Node):
         
         # define waypoints
         self.ref_points = [
-            (35.42592508, 139.3138167), # waypoint 1
-            (35.425966134, 139.31379639000002), # waypoint 2
-            (35.425661999999996, 139.31391208), # waypoint 3
-            (35.45, 139.34) # waypoint 4
+            (35.42578984, 139.3138073), # waypoint 1
+            (35.42580947, 139.3138761), # waypoint 2
+            (35.42582577, 139.3139183), # waypoint 3
+            (35.42584276, 139.3139622), # waypoint 1
+            (35.42585746, 139.3139984), # waypoint 2
+            (35.42589533, 139.3139987), # waypoint 3
+            (35.42596721, 139.3139898), # waypoint 4
+            (35.42596884, 139.3139395) # waypoint 3
         ]
 
         # Tkinter UI
@@ -130,8 +134,8 @@ class GPSAverageNode(Node):
             r_theta = theta * degree_to_radian
             h_x = math.cos(r_theta) * gps_x - math.sin(r_theta) * gps_y
             h_y = math.sin(r_theta) * gps_x + math.cos(r_theta) * gps_y
-            #point = np.array([h_y, -h_x, 0.0])
-            point = np.array([-h_y, h_x, 0.0])
+            point = np.array([h_y, -h_x, 0.0])
+            #point = np.array([-h_y, h_x, 0.0])
             # point = (h_y, -h_x)
             self.get_logger().info(f"point: {point}")         
             points.append(point)
@@ -169,8 +173,9 @@ class GPSAverageNode(Node):
             
             # ここで前後に追加したいXY座標を定義
             first_point = np.array([[0.0, 0.0, 0.0],
-                                    [5.0, 5.0, 0.0]])  # 開始点など
-            last_point = np.array([[20.0, 5.0, 0.0]])   # 終了点など
+                                    [5.0, 0.0, 0.0],
+                                    [10.0, 0.0, 0.0]])  # 開始点など
+            last_point = np.array([[0.0, 0.0, 0.0]])   # 終了点など
             
             # prepend/append の設定（反転フラグに応じて）
             if self.reversed_flag:
